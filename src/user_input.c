@@ -6,7 +6,7 @@
 /*   By: njennes <njennes@student.42lyon.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/05/08 14:44:43 by njennes           #+#    #+#             */
-/*   Updated: 2022/05/09 13:51:23 by njennes          ###   ########.fr       */
+/*   Updated: 2022/05/09 14:49:41 by njennes          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -52,8 +52,9 @@ int get_chat_mode()
 		user_input = gc_get_next_line(STDIN_FILENO);
 		trim_input(user_input);
 	}
+	int final_choice = *user_input - '0';
 	gc_free(user_input);
-	return (*user_input - '0');
+	return (final_choice);
 }
 
 static int is_ip_valid(char *ip)
