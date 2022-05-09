@@ -6,14 +6,14 @@
 /*   By: njennes <njennes@student.42lyon.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/05/08 14:22:07 by njennes           #+#    #+#             */
-/*   Updated: 2022/05/09 13:46:06 by njennes          ###   ########.fr       */
+/*   Updated: 2022/05/09 13:46:10 by njennes          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <strings.h>
+#include <string.h>
 #include "mini_chat.h"
 #include "leaky.h"
 

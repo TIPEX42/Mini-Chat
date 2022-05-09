@@ -6,7 +6,7 @@
 /*   By: njennes <njennes@student.42lyon.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/05/08 15:22:39 by njennes           #+#    #+#             */
-/*   Updated: 2022/05/09 14:34:44 by njennes          ###   ########.fr       */
+/*   Updated: 2022/05/09 14:36:15 by njennes          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <strings.h>
+#include <string.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <errno.h>

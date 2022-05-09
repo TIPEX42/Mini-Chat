@@ -6,13 +6,13 @@
 /*   By: njennes <njennes@student.42lyon.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/05/09 13:02:21 by njennes           #+#    #+#             */
-/*   Updated: 2022/05/09 14:25:27 by njennes          ###   ########.fr       */
+/*   Updated: 2022/05/09 14:30:50 by njennes          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 
 #include <stdio.h>
-#include <strings.h>
+#include <string.h>
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <stdlib.h>
