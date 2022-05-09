@@ -5,9 +5,9 @@ DEBUG_NAME				:=	mini_chat_debug
 # ****************************************************************************
 
 SRCS_FILE		:=	main.c	\
-					init.c	\
+					init.c signal.c	\
 					user_input.c	\
-					server.c
+					server.c client.c packet.c
 
 SRCS			:=	$(addprefix $(SRCS_DIR)/, $(SRCS_FILE))
 RELEASE_OBJS	:=	$(addprefix $(RELEASE_OBJS_DIR)/, $(notdir $(SRCS:.c=.o)))

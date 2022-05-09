@@ -6,7 +6,7 @@
 /*   By: njennes <njennes@student.42lyon.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/05/08 15:22:39 by njennes           #+#    #+#             */
-/*   Updated: 2022/05/08 17:29:52 by njennes          ###   ########.fr       */
+/*   Updated: 2022/05/09 14:34:44 by njennes          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,31 +17,39 @@
 #include <arpa/inet.h>
 #include <strings.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <errno.h>
 #include "mini_chat.h"
-#include "leaky.h"
 
 # define SERVER_BACKLOG 3
+# define MAX_CONNECTED_CLIENTS 100
 
 static int server_main_socket_fd = 0;
 static pthread_t server_main_thread = {0};
 
-static size_t workers_count = 0;
-static connexion_handler_t *workers = NULL;
+static size_t clients_count = 0;
+static connected_client_t clients[MAX_CONNECTED_CLIENTS];
+static pthread_mutex_t workers_mutex = {0};
 
 static void init_server_socket();
 static void	*accept_connexions(void *unused);
 static void handle_new_connexion(int new_socket, struct sockaddr_in client);
 static void *worker_routine(void *ptr);
+static void remove_client(connected_client_t *client);
+static void broadcast(int type, char *client_name, char *content);
 
 void start_server()
 {
 	init_server_socket();
+	pthread_mutex_init(&workers_mutex, NULL);
 
 	if (pthread_create(&server_main_thread, NULL, accept_connexions, NULL))
 	{
 		printf("Could not start the server main thread!\n");
 		end_program(1);
 	}
+	pthread_detach(server_main_thread);
+	while (1);
 }
 
 static void init_server_socket()
@@ -56,7 +64,7 @@ static void init_server_socket()
 	struct sockaddr_in server = {0};
 	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = INADDR_ANY;
-	server.sin_port = htons(8989);
+	server.sin_port = htons(8991);
 
 	if(bind(server_main_socket_fd,(struct sockaddr *)&server , sizeof(server)) < 0)
 	{
@@ -71,72 +79,144 @@ static void	*accept_connexions(void *unused)
 {
 	(void)unused;
 
-	struct sockaddr_in client = {0};
-	socklen_t c = sizeof(struct sockaddr_in);
+	while (1)
+	{
+		struct sockaddr_in client = {0};
+		socklen_t len = sizeof(struct sockaddr_in);
 
-	int new_socket = accept(server_main_socket_fd, (struct sockaddr *)&client, &c);
-	if (new_socket < 0)
-		printf("An incoming connexion failed!\n");
+		int new_socket = accept(server_main_socket_fd, (struct sockaddr *)&client, &len);
+		if (new_socket < 0)
+		{
+			printf("An incoming connexion failed! : %s %d\n", strerror(errno), server_main_socket_fd);
+			return (NULL);
+		}
 
-	char *client_ip = inet_ntoa(client.sin_addr);
-	int client_port = ntohs(client.sin_port);
-	printf("Incoming connexion from: %s : %d\n", client_ip, client_port);
-	handle_new_connexion(new_socket, client);
-
-	return (NULL);
+		char *client_ip = inet_ntoa(client.sin_addr);
+		int client_port = ntohs(client.sin_port);
+		printf("Incoming connexion from: %s : %d\n", client_ip, client_port);
+		handle_new_connexion(new_socket, client);
+	}
 }
 
 static void handle_new_connexion(int new_socket, struct sockaddr_in client)
 {
-	connexion_handler_t new_worker = {0};
+	connected_client_t new_worker = {0};
 	new_worker.socket_fd = new_socket;
-	new_worker.client = client;
+	new_worker.socket_infos = client;
+	new_worker.ip = inet_ntoa(client.sin_addr);
+	new_worker.port = ntohs(client.sin_port);
 
-	if (!workers)
-		workers = gc_calloc(1, sizeof (connexion_handler_t));
-	else
+	pthread_mutex_lock(&workers_mutex);
+	if (clients_count == MAX_CONNECTED_CLIENTS)
 	{
-		connexion_handler_t *new_workers = gc_calloc(workers_count + 1, sizeof (connexion_handler_t));
-		gc_memmove(new_workers, workers, workers_count * sizeof (connexion_handler_t));
-		gc_free(workers);
-		workers = new_workers;
+		printf("Connexion refused : The chat is full!\n");
+		return ;
 	}
 
-	workers[workers_count] = new_worker;
-	if (pthread_create(&workers[workers_count].worker, NULL, worker_routine, &workers[workers_count]))
+	for (size_t i = 0; i < MAX_CONNECTED_CLIENTS; i++)
 	{
-		printf("Could not start a new thread for the incomming connexion!\n");
-		end_program(1);
+		if (clients[i].socket_fd == 0)
+		{
+			clients[i] = new_worker;
+			if (pthread_create(&clients[i].worker, NULL, worker_routine, &clients[i]))
+			{
+				printf("Could not start a new thread for the incomming connexion!\n");
+				end_program(1);
+			}
+			break ;
+		}
 	}
-	pthread_detach(workers[workers_count].worker);
-	workers_count++;
+
+	pthread_detach(clients[clients_count].worker);
+	clients_count++;
+	pthread_mutex_unlock(&workers_mutex);
+}
+
+static void remove_client(connected_client_t *client)
+{
+	pthread_mutex_lock(&workers_mutex);
+	close(client->socket_fd);
+	free(client->name);
+	memset(client, 0, sizeof(connected_client_t));
+	clients_count--;
+	pthread_mutex_unlock(&workers_mutex);
 }
 
 static void *worker_routine(void *ptr)
 {
-	connexion_handler_t *worker = (connexion_handler_t *)ptr;
+	connected_client_t *client = (connected_client_t *)ptr;
 
-	char *message = "Hello Client , I have received your connection. But I have to go now, bye\n";
-	write(worker->socket_fd , message , strlen(message));
-	close(worker->socket_fd);
+	packet_t packet = {0};
+	char *packet_content = read_packet(&packet, client->socket_fd);
+	while (packet_content)
+	{
+		if (packet.packet_type == PACKET_CONNECTION)
+		{
+			printf("Welcome %s!\n", packet_content);
+			client->name = packet_content;
+			broadcast(PACKET_CONNECTION, client->name, NULL);
+		}
+		else if (packet.packet_type == PACKET_MESSAGE_TO_SERVER)
+		{
+			printf("[%s]: %s\n", client->name, packet_content);
+			broadcast(PACKET_MESSAGE_FROM_SERVER, client->name, packet_content);
+			free(packet_content);
+		}
+		packet_content = read_packet(&packet, client->socket_fd);
+	}
+
+	printf("Client %s [%s:%d] disconnected\n", client->name, client->ip, client->port);
+	remove_client(client);
 	return (NULL);
+}
+
+static void broadcast(int type, char *client_name, char *content)
+{
+	if (type == PACKET_MESSAGE_FROM_SERVER)
+	{
+		int bytes = strlen(client_name) + 1 + strlen(content);
+		char *full_content = calloc(bytes + 1, sizeof (char));
+		if (!full_content)
+			return ;
+		memmove(full_content, client_name, strlen(client_name));
+		memmove(full_content + strlen(client_name) + 1, content, strlen(content));
+
+		size_t i = 0;
+		while (i < MAX_CONNECTED_CLIENTS)
+		{
+			if (clients[i].socket_fd)
+				send_packet(clients[i].socket_fd, PACKET_MESSAGE_FROM_SERVER, full_content, bytes);
+			i++;
+		}
+		free(full_content);
+	}
+	else if (type == PACKET_CONNECTION)
+	{
+		size_t i = 0;
+		while (i < MAX_CONNECTED_CLIENTS)
+		{
+			if (clients[i].socket_fd)
+				send_packet(clients[i].socket_fd, PACKET_CONNECTION, client_name, strlen(client_name));
+			i++;
+		}
+	}
+
 }
 
 void close_server()
 {
-	if (server_main_socket_fd)
-		close(server_main_socket_fd);
+	close(server_main_socket_fd);
+	server_main_socket_fd = 0;
 
-	if (workers)
+	pthread_mutex_lock(&workers_mutex);
+	size_t i = 0;
+	while (i < clients_count)
 	{
-		size_t i = 0;
-		while (i < workers_count)
-		{
-			close(workers[i].socket_fd);
-			if (workers[i].worker)
-				pthread_join(workers[i].worker, NULL);
-			i++;
-		}
-		gc_free(workers);
+		close(clients[i].socket_fd);
+		if (clients[i].worker)
+			pthread_join(clients[i].worker, NULL);
+		i++;
 	}
+	pthread_mutex_unlock(&workers_mutex);
+	pthread_mutex_destroy(&workers_mutex);
 }

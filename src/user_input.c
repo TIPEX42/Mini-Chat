@@ -6,7 +6,7 @@
 /*   By: njennes <njennes@student.42lyon.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/05/08 14:44:43 by njennes           #+#    #+#             */
-/*   Updated: 2022/05/08 15:51:52 by njennes          ###   ########.fr       */
+/*   Updated: 2022/05/09 13:51:23 by njennes          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,6 +15,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include "leaky.h"
+#include "mini_chat.h"
 
 static int is_ip_valid(char *ip);
 
@@ -22,7 +23,8 @@ char *get_input_ip(void)
 {
 	printf("Enter chat IP: ");
 	fflush(stdout);
-	char	*input_ip = gc_get_next_line(STDIN_FILENO);
+	char *input_ip = gc_get_next_line(STDIN_FILENO);
+	trim_input(input_ip);
 
 	if (is_ip_valid(input_ip))
 		return (input_ip);
@@ -38,9 +40,7 @@ int get_chat_mode()
 	fflush(stdout);
 
 	char *user_input = gc_get_next_line(STDIN_FILENO);
-	char *backslash = strchr(user_input, '\n');
-	if (backslash)
-		*backslash = 0;
+	trim_input(user_input);
 
 	while (!user_input || strlen(user_input) != 1
 		   || !(*user_input == '0' || *user_input == '1'))
@@ -50,9 +50,7 @@ int get_chat_mode()
 		printf("Do you want to host a chat or join one ?(host 0, join 1): ");
 		fflush(stdout);
 		user_input = gc_get_next_line(STDIN_FILENO);
-		backslash = strchr(user_input, '\n');
-		if (backslash)
-			*backslash = 0;
+		trim_input(user_input);
 	}
 	gc_free(user_input);
 	return (*user_input - '0');
@@ -62,10 +60,6 @@ static int is_ip_valid(char *ip)
 {
 	if (!ip)
 		return (0);
-
-	char *backslash = strchr(ip, '\n');
-	if (backslash)
-		*backslash = 0;
 
 	size_t i = 0;
 	size_t blocks = 0;
@@ -89,4 +83,14 @@ static int is_ip_valid(char *ip)
 	if (blocks != 4)
 		return (0);
 	return (1);
+}
+
+void trim_input(char *input)
+{
+	size_t i = strlen(input) - 1;
+	while (i >= 0 && isspace(input[i]))
+	{
+		input[i] = 0;
+		i--;
+	}
 }

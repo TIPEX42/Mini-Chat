@@ -1,30 +1,27 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   init.c                                             :+:      :+:    :+:   */
+/*   signal.c                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: njennes <njennes@student.42lyon.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2022/05/08 15:12:01 by njennes           #+#    #+#             */
-/*   Updated: 2022/05/09 13:57:07 by njennes          ###   ########.fr       */
+/*   Created: 2022/05/09 13:54:00 by njennes           #+#    #+#             */
+/*   Updated: 2022/05/09 13:56:26 by njennes          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <stdlib.h>
-#include "leaky.h"
+#include <signal.h>
 #include "mini_chat.h"
 
-int gc_callback(void *unused);
+void sig_handler(int signal);
 
-void init_program()
+void init_signal()
 {
-	gc_set_callback(gc_callback);
-	init_signal();
+	signal(SIGINT, sig_handler);
 }
 
-int gc_callback(void *unused)
+void sig_handler(int signal)
 {
-	(void)unused;
-	gc_clean();
-	exit(1);
+	if (signal == SIGINT)
+		end_program(0);
 }
